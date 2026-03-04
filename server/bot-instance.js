@@ -515,7 +515,8 @@ class BotInstance extends EventEmitter {
     connect(code) {
         return new Promise((resolve, reject) => {
             this._setStatus('connecting');
-            const url = `${CONFIG.serverUrl}?platform=${this.platform}&os=${CONFIG.os}&ver=${CONFIG.clientVersion}&code=${code}&openID=`;
+            // 核心修复：使用 encodeURIComponent 对 code 进行编码，防止特殊字符破坏 URL
+            const url = `${CONFIG.serverUrl}?platform=${this.platform}&os=${CONFIG.os}&ver=${CONFIG.clientVersion}&code=${encodeURIComponent(code)}&openID=`;
 
             this.ws = new WebSocket(url, {
                 headers: {
@@ -823,7 +824,8 @@ class BotInstance extends EventEmitter {
             if (planted > 0) plantedLands = landsToPlant.slice(0, planted);
         } catch (e) { this.logWarn('种植', e.message); }
 
-        if (plantedLands.length > 0) {
+        // 修复：增加 && this.featureToggles.autoFertilize 检查
+        if (plantedLands.length > 0 && this.featureToggles.autoFertilize) {
             const fertilized = await this.fertilize(plantedLands);
             if (fertilized > 0) this.log('施肥', `已为 ${fertilized}/${plantedLands.length} 块地施肥`);
         }
@@ -950,7 +952,8 @@ class BotInstance extends EventEmitter {
             if (batchOps.length > 0) await Promise.all(batchOps);
 
             let harvestedLandIds = [];
-            if (status.harvestable.length > 0) {
+            // 修复：增加 && this.featureToggles.autoHarvest 检查
+            if (status.harvestable.length > 0 && this.featureToggles.autoHarvest) {
                 try {
                     await this.harvest(status.harvestable);
                     actions.push(`🌽收获×${status.harvestable.length}`);
@@ -963,7 +966,8 @@ class BotInstance extends EventEmitter {
 
             const allDead = [...status.dead, ...harvestedLandIds];
             const allEmpty = [...status.empty];
-            if (allDead.length > 0 || allEmpty.length > 0) {
+            // 修复：增加 && this.featureToggles.autoPlant 检查
+            if ((allDead.length > 0 || allEmpty.length > 0) && this.featureToggles.autoPlant) {
                 try { await this.autoPlantEmptyLands(allDead, allEmpty, unlockedCount); actions.push(`🌱种植×${allDead.length + allEmpty.length}`); }
                 catch (e) { this.logWarn('种植', e.message); }
             }

@@ -218,6 +218,14 @@ class BotManager extends EventEmitter {
             preferredSeedId: opts.preferredSeedId || 0,
         });
 
+        // 核心修复：从数据库读取并恢复玩家保存的开关设置
+        const user = db.getUserByUin(uin);
+        if (user && user.feature_toggles) {
+            try {
+                bot.setFeatureToggles(JSON.parse(user.feature_toggles));
+            } catch (e) {}
+        }
+
         // 监听事件并转发给 BotManager 的事件总线
         bot.on('log', (entry) => {
             this.emit('botLog', entry);

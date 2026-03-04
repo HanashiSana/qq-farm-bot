@@ -104,6 +104,54 @@ router.get('/auth/me', authMiddleware, (req, res) => {
 router.use(authMiddleware);
 
 // ============================================================
+//  手动输入 QQ Code 登录通道 (从 lixy-one 移植)
+// ============================================================
+/** POST /api/accounts/add-by-qq-code - 手动 QQ Code 添加账号 */
+router.post('/accounts/add-by-qq-code', async (req, res) => {
+    try {
+        // 从网页接收你输入的 QQ号 和 Code
+        const { uin, code, farmInterval, friendInterval } = req.body || {};
+        if (!uin || !code) {
+            return res.status(400).json({ ok: false, error: 'QQ号和Code不能为空哦' });
+        }
+
+        const actualPlatform = 'qq';
+
+        // 1. 在数据库里登记这个新 QQ
+        db.createUser({ uin, platform: actualPlatform, farmInterval: farmInterval || 10000, friendInterval: friendInterval || 10000 });
+
+        // 2. 把你填的 Code 保存下来
+        db.saveSession(uin, code);
+
+        // 3. 启动机器人的农场工作
+        await botManager._startBot(uin, code, { platform: actualPlatform, farmInterval, friendInterval });
+
+        // 4. 把这个 QQ 绑定到你现在的管理员账号下，这样你就能在网页看到了
+        if (req.user.role !== 'admin') {
+            const adminUser = db.getAdminUserById(req.user.id);
+            if (adminUser) {
+                const currentUins = (adminUser.allowed_uins || '').split(',').map(s => s.trim()).filter(Boolean);
+                if (!currentUins.includes(uin)) {
+                    currentUins.push(uin);
+                    db.updateAdminUser(adminUser.id, { allowed_uins: currentUins.join(',') });
+                }
+            }
+        }
+
+        res.json({ ok: true, data: { uin } });
+
+        // 5. 广播通知网页：“有新号进来了，刷新一下列表吧！”
+        const io = req.app.locals.io;
+        if (io) {
+            const { maskAccountsPublic } = require('./account-utils');
+            io.emit('accounts:list', maskAccountsPublic(botManager.listAccounts()));
+        }
+    } catch (err) {
+        res.status(400).json({ ok: false, error: err.message });
+    }
+});
+
+// ============================================================
 //  账号列表
 // ============================================================
 
@@ -280,6 +328,8 @@ router.put('/accounts/:uin/toggles', canAccessUin, (req, res) => {
         const bot = botManager.bots.get(req.params.uin);
         if (!bot) return res.status(400).json({ ok: false, error: 'Bot 未运行' });
         bot.setFeatureToggles(req.body || {});
+        // 核心修复：保存到数据库，实现记忆功能
+        db.updateUser(req.params.uin, { feature_toggles: JSON.stringify(bot.featureToggles) });
         res.json({ ok: true, data: bot.featureToggles });
     } catch (err) {
         res.status(500).json({ ok: false, error: err.message });

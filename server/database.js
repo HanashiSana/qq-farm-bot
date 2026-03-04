@@ -158,6 +158,7 @@ async function initDatabase() {
 
     // 迁移: 添加 preferred_seed_id 列
     try { db.run(`ALTER TABLE users ADD COLUMN preferred_seed_id INTEGER DEFAULT 0`); } catch (e) { /* 列已存在 */ }
+    try { db.run(`ALTER TABLE users ADD COLUMN feature_toggles TEXT DEFAULT '{}'`); } catch (e) { /* 列已存在 */ }
 
     saveToFile();
 
