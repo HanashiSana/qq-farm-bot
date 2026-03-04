@@ -232,8 +232,12 @@ import { ElMessage } from 'element-plus'
 import { getAccountSnapshot, updateToggles, startBot, stopBot, startQrLogin, cancelQrLogin } from '../api/index.js'
 import { onEvent, offEvent } from '../socket/index.js'
 import QrCodeDialog from '../components/QrCodeDialog.vue'
+// ⭐ 新增：引入权限模块
+import { useAuthStore } from '../stores/auth.js'
 
 const props = defineProps({ uin: String })
+// ⭐ 新增：获取权限工具
+const auth = useAuthStore()
 
 const loading = ref(false)
 const snapshot = ref(null)
@@ -297,6 +301,38 @@ async function handleStart() {
 }
 
 async function handleQrConfirm(form) {
+  // ⭐ 新增：对接我们刚才写的 QQ Code 模式暗号
+  if (form.isQqCode) {
+    try {
+      // 呼叫后端接口
+      const response = await fetch('/api/accounts/add-by-qq-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + auth.token
+        },
+        body: JSON.stringify({
+          uin: form.uin,
+          code: form.code,
+          farmInterval: form.farmInterval,
+          friendInterval: form.friendInterval
+        })
+      })
+      const res = await response.json()
+      if (res.ok) {
+        ElMessage.success('🎉 QQ 账号登录成功！')
+        qrDialogVisible.value = false // 关掉弹窗
+        fetchData() // 刷新页面数据，让按钮变成绿色
+      } else {
+        ElMessage.error(res.error || '登录失败')
+      }
+    } catch (e) {
+      ElMessage.error('网络请求失败: ' + e.message)
+    }
+    return // 结束，不要往下执行扫码了
+  }
+
+  // 下面是原来的扫码模式保持不变
   qrStatus.value = 'loading'
   try {
     const res = await startQrLogin(props.uin, {
