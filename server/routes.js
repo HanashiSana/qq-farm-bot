@@ -117,10 +117,21 @@ router.post('/accounts/add-by-qq-code', async (req, res) => {
 
         const actualPlatform = 'qq';
 
-        // 1. 在数据库里登记这个新 QQ
-        db.createUser({ uin, platform: actualPlatform, farmInterval: farmInterval || 10000, friendInterval: friendInterval || 10000 });
+        // 1. 先查一下花名册里有没有这个 QQ
+        const existingUser = db.getUserByUin(uin);
+        
+        if (!existingUser) {
+            // 如果查不到，说明是彻底的新号，老老实实新建登记
+            db.createUser({ uin, platform: actualPlatform, farmInterval: farmInterval || 10000, friendInterval: friendInterval || 10000 });
+        } else {
+            // 如果查到了，说明是掉线的老号，不仅不报错，我们顺便更新一下它的农场巡查间隔
+            db.updateUser(uin, { 
+                farm_interval: farmInterval || existingUser.farm_interval, 
+                friend_interval: friendInterval || existingUser.friend_interval 
+            });
+        }
 
-        // 2. 把你填的 Code 保存下来
+        // 2. 把你填的新 Code 保存下来（这一步会自动覆盖掉旧的、过期的 Code）
         db.saveSession(uin, code);
 
         // 3. 启动机器人的农场工作
