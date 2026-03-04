@@ -261,7 +261,38 @@ async function handleDelete(uin) {
 }
 
 async function handleQrConfirm(form) {
-  // 手动输入 authCode 模式（微信）
+  // ⭐ 新增：对接我们刚才写的 QQ Code 模式暗号
+  if (form.isQqCode) {
+    try {
+      // 呼叫后端接口
+      const response = await fetch('/api/accounts/add-by-qq-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + auth.token
+        },
+        body: JSON.stringify({
+          uin: form.uin,
+          code: form.code,
+          farmInterval: form.farmInterval,
+          friendInterval: form.friendInterval
+        })
+      })
+      const res = await response.json()
+      if (res.ok) {
+        ElMessage.success('🎉 QQ 账号添加/登录成功！')
+        showQrDialog.value = false // 关掉弹窗
+        fetchAccounts() // 刷新列表
+      } else {
+        ElMessage.error(res.error || '添加失败')
+      }
+    } catch (e) {
+      ElMessage.error('网络请求失败: ' + e.message)
+    }
+    return // 结束，不要往下执行了
+  }
+
+  // 下面是原来的手动输入 authCode 模式（微信）保持不变
   if (form.manual && form.code) {
     try {
       await addAccountByCode({
