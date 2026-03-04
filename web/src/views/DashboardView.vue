@@ -42,7 +42,8 @@
 
     <!-- 操作栏 -->
     <div class="toolbar">
-      <el-button type="primary" :icon="Plus" @click="showQrDialog = true">添加账号</el-button>
+      <el-button type="primary" :icon="Plus" @click="showQrDialog = true">扫码添加账号</el-button>
+      <el-button type="success" :icon="Plus" @click="showManualDialog = true">手动 Code 添加 (QQ)</el-button>
     </div>
 
     <!-- 账号列表 -->
@@ -117,6 +118,25 @@
       @confirm="handleQrConfirm"
       @cancel="handleQrCancel"
     />
+    <el-dialog v-model="showManualDialog" title="手动输入 QQ Code 登录" width="400px">
+      <el-form label-width="80px">
+        <el-form-item label="QQ号码" required>
+          <el-input v-model="manualForm.uin" placeholder="请输入你的QQ号"></el-input>
+        </el-form-item>
+        <el-form-item label="Code" required>
+          <el-input v-model="manualForm.code" placeholder="请输入抓包获取的Code"></el-input>
+        </el-form-item>
+        <el-form-item label="农场间隔">
+          <el-input-number v-model="manualForm.farmInterval" :min="1000" :step="1000" style="width: 100%"></el-input-number>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showManualDialog = false">取消</el-button>
+          <el-button type="primary" :loading="manualLoading" @click="handleManualSubmit">确定登录</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -145,7 +165,53 @@ const showQrDialog = ref(false)
 const qrBase64 = ref('')
 const qrStatus = ref('idle')
 const qrUin = ref('')
+// 手动 Code Dialog (我们新加的变量和提交方法)
+const showManualDialog = ref(false)
+const manualLoading = ref(false)
+const manualForm = ref({
+  uin: '',
+  code: '',
+  farmInterval: 10000,
+  friendInterval: 10000
+})
 
+async function handleManualSubmit() {
+  if (!manualForm.value.uin || !manualForm.value.code) {
+    ElMessage.warning('QQ号和Code不能为空哦')
+    return
+  }
+  manualLoading.value = true
+  try {
+    // 呼叫我们刚才在后端开好的那扇小门
+    const response = await fetch('/api/accounts/add-by-qq-code', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + auth.token // 证明你的身份
+      },
+      body: JSON.stringify({
+        uin: manualForm.value.uin,
+        code: manualForm.value.code,
+        farmInterval: manualForm.value.farmInterval,
+        friendInterval: manualForm.value.friendInterval
+      })
+    })
+    const res = await response.json()
+    if (res.ok) {
+      ElMessage.success('🎉 QQ 账号手动添加成功！')
+      showManualDialog.value = false
+      manualForm.value.uin = ''
+      manualForm.value.code = ''
+      fetchAccounts() // 刷新列表看看新账号
+    } else {
+      ElMessage.error(res.error || '添加失败了')
+    }
+  } catch (e) {
+    ElMessage.error('网络请求失败: ' + e.message)
+  } finally {
+    manualLoading.value = false
+  }
+}
 
 async function fetchAccounts() {
   loading.value = true
