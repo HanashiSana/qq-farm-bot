@@ -946,9 +946,10 @@ class BotInstance extends EventEmitter {
 
             const actions = [];
             const batchOps = [];
-            if (status.needWeed.length > 0) batchOps.push(this.weedOut(status.needWeed).then(() => actions.push(`🌿除草×${status.needWeed.length}`)).catch(e => this.logWarn('除草', e.message)));
-            if (status.needBug.length > 0) batchOps.push(this.insecticide(status.needBug).then(() => actions.push(`🐛除虫×${status.needBug.length}`)).catch(e => this.logWarn('除虫', e.message)));
-            if (status.needWater.length > 0) batchOps.push(this.waterLand(status.needWater).then(() => actions.push(`💦浇水×${status.needWater.length}`)).catch(e => this.logWarn('浇水', e.message)));
+            // ⭐ 新增了开关判断 ⭐
+            if (status.needWeed.length > 0 && this.featureToggles.autoWeed) batchOps.push(this.weedOut(status.needWeed).then(() => actions.push(`🌿除草×${status.needWeed.length}`)).catch(e => this.logWarn('除草', e.message)));
+            if (status.needBug.length > 0 && this.featureToggles.autoPest) batchOps.push(this.insecticide(status.needBug).then(() => actions.push(`🐛除虫×${status.needBug.length}`)).catch(e => this.logWarn('除虫', e.message)));
+            if (status.needWater.length > 0 && this.featureToggles.autoWater) batchOps.push(this.waterLand(status.needWater).then(() => actions.push(`💦浇水×${status.needWater.length}`)).catch(e => this.logWarn('浇水', e.message)));
             if (batchOps.length > 0) await Promise.all(batchOps);
 
             let harvestedLandIds = [];
@@ -1307,6 +1308,10 @@ class BotInstance extends EventEmitter {
 
     async checkFriends() {
         if (this.isCheckingFriends || !this.userState.gid) return;
+        
+        // ⭐ 新增：如果没开好友巡查，直接下班！ ⭐
+        if (!this.featureToggles.friendVisit) return;
+
         this.isCheckingFriends = true;
         this._checkDailyReset();
         try {
