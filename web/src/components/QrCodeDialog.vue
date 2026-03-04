@@ -73,7 +73,7 @@
           </el-form>
         </el-tab-pane>
 
-        <el-tab-pane label="微信Code登录" name="manual">
+<el-tab-pane label="微信Code登录" name="manual">
           <el-form :model="manualForm" label-width="100px" @submit.prevent="handleManualSubmit">
             <el-form-item label="authCode" required>
               <el-input
@@ -93,8 +93,36 @@
             </el-form-item>
           </el-form>
         </el-tab-pane>
-      </el-tabs>
-    </template>
+
+        <el-tab-pane label="QQ Code登录" name="qqCode">
+          <el-form :model="qqCodeForm" label-width="100px" @submit.prevent="handleQqCodeSubmit">
+            <el-form-item label="QQ号" required>
+              <el-input
+                v-model="qqCodeForm.uin"
+                placeholder="请输入QQ号"
+                :disabled="!!initialUin"
+              />
+            </el-form-item>
+            <el-form-item label="Code" required>
+              <el-input
+                v-model="qqCodeForm.code"
+                placeholder="请粘贴抓包获取的Code"
+                type="textarea"
+                :rows="2"
+              />
+            </el-form-item>
+            <el-form-item label="农场巡查">
+              <el-input-number v-model="qqCodeForm.farmIntervalSec" :min="1" :max="3600" :step="5" />
+              <span class="unit-text">秒</span>
+            </el-form-item>
+            <el-form-item label="好友巡查">
+              <el-input-number v-model="qqCodeForm.friendIntervalSec" :min="1" :max="3600" :step="5" />
+              <span class="unit-text">秒</span>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+
+      </el-tabs> </template>
 
     <template #footer>
       <template v-if="qrStatus === 'pending'">
@@ -112,12 +140,20 @@
           获取二维码
         </el-button>
         <el-button
-          v-else
+          v-else-if="activeTab === 'manual'"
           type="primary"
           @click="handleManualSubmit"
           :disabled="!manualForm.authCode.trim()"
         >
-          添加账号
+          添加微信账号
+        </el-button>
+        <el-button
+          v-else-if="activeTab === 'qqCode'"
+          type="primary"
+          @click="handleQqCodeSubmit"
+          :disabled="!qqCodeForm.uin.trim() || !qqCodeForm.code.trim()"
+        >
+          添加/登录QQ账号
         </el-button>
       </template>
     </template>
@@ -166,10 +202,24 @@ const manualForm = ref({
   friendIntervalSec: 10,
 })
 
+// ⭐ 新增的 QQ Code 表单数据 ⭐
+const qqCodeForm = ref({
+  uin: '',
+  code: '',
+  platform: 'qq',
+  farmIntervalSec: 10,
+  friendIntervalSec: 10,
+})
+
+// 当对话框打开时，预填 uin
+
 // 当对话框打开时，预填 uin
 watch(() => props.visible, (visible) => {
   if (visible && props.initialUin) {
     form.value.uin = props.initialUin
+    // ⭐ 也给 QQ Code 登录的表单填上默认值 ⭐
+    qqCodeForm.value.uin = props.initialUin
+    qqCodeForm.value.code = '' // 顺便清空上次可能输入的旧Code
   }
 })
 
@@ -223,7 +273,20 @@ function handleManualSubmit() {
     farmInterval: manualForm.value.farmIntervalSec * 1000,
     friendInterval: manualForm.value.friendIntervalSec * 1000,
     code: manualForm.value.authCode.trim(),
-    manual: true,
+    manual: true, // 这是微信标识
+  })
+}
+
+// ⭐ 新增的 QQ Code 提交方法 ⭐
+function handleQqCodeSubmit() {
+  if (!qqCodeForm.value.uin.trim() || !qqCodeForm.value.code.trim()) return
+  emit('confirm', {
+    platform: qqCodeForm.value.platform,
+    farmInterval: qqCodeForm.value.farmIntervalSec * 1000,
+    friendInterval: qqCodeForm.value.friendIntervalSec * 1000,
+    code: qqCodeForm.value.code.trim(),
+    uin: qqCodeForm.value.uin.trim(),
+    isQqCode: true, // 给父组件一个暗号，说明这是 QQ Code 模式
   })
 }
 
