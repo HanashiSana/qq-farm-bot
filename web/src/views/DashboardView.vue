@@ -79,20 +79,27 @@
             {{ statusText(acc.status) }}
           </el-tag>
           <div class="acc-actions" v-if="acc.isOwn" @click.stop>
-            <el-button
-              v-if="acc.status !== 'running'"
-              type="success" size="small" plain circle
-              :icon="VideoPlay"
-              @click="handleStart(acc.uin)"
-              title="启动"
-            />
-            <el-button
-              v-if="acc.status === 'running'"
-              type="warning" size="small" plain circle
-              :icon="VideoPause"
-              @click="handleStop(acc.uin)"
-              title="停止"
-            />
+        <el-button
+          v-if="acc.status !== 'running'"
+          type="success" size="small" plain circle
+          :icon="VideoPlay"
+          @click="handleStart(acc.uin)"
+          title="扫码启动"
+        />
+        <el-button
+          v-if="acc.status !== 'running'"
+          type="primary" size="small" plain circle
+          :icon="Key"
+          @click="handleCodeStart(acc.uin)"
+          title="Code登录"
+        />
+        <el-button
+          v-if="acc.status === 'running'"
+          type="warning" size="small" plain circle
+          :icon="VideoPause"
+          @click="handleStop(acc.uin)"
+          title="停止"
+        />
             <el-button
               type="danger" size="small" plain circle
               :icon="Delete"
@@ -118,7 +125,7 @@
       @confirm="handleQrConfirm"
       @cancel="handleQrCancel"
     />
-    <el-dialog v-model="showManualDialog" title="手动输入 QQ Code 登录" width="400px">
+    <el-dialog v-model="showManualDialog" title="QQ Code 添加/登录" width="400px">
       <el-form label-width="80px">
         <el-form-item label="QQ号码" required>
           <el-input v-model="manualForm.uin" placeholder="请输入你的QQ号"></el-input>
@@ -144,7 +151,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, VideoPlay, VideoPause, Delete } from '@element-plus/icons-vue'
+import { Plus, VideoPlay, VideoPause, Delete, Key } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth.js'
 import { getAccounts, startBot, stopBot, deleteAccount, startQrLogin, cancelQrLogin, addAccountByCode } from '../api/index.js'
 import { onEvent, offEvent } from '../socket/index.js'
@@ -229,6 +236,16 @@ async function handleStart(uin) {
   qrBase64.value = ''
   qrUin.value = uin
   qrStatus.value = 'idle'
+}
+
+// 这是给已有账号用的 Code 登录功能
+function handleCodeStart(uin) {
+  // 自动把当前账号的 QQ 号填到输入框里
+  manualForm.value.uin = uin
+  // 把上次可能填写的 Code 清空，保持干净
+  manualForm.value.code = ''
+  // 打开那个手动输入 Code 的弹窗
+  showManualDialog.value = true
 }
 
 async function handleStop(uin) {
